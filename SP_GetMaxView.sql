@@ -72,7 +72,6 @@ SELECT
     li.Dealer, 
     li.location, 
     sn.partnumber,
-    pm.PartID,
     pm.partdesc,  
     pm.category, 
     pm.mrp, 
@@ -128,4 +127,4 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
 END;
 GO
 --EXEC GetMAXData @DealerID = 8 , @r1 = null ,@r2 = null,@PartNumber = null,@LocationID = 14,@MaxValueFlag = null,@seasonalid = null,@natureid = null,@modelid = null;
---EXEC GetMAXData  8 ,null,null,null,14,null,null,null,null;
+--EXEC GetMAXData   9,null,null,null,40716,1,null,null,null;
