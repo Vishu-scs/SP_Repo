@@ -68,9 +68,9 @@ BEGIN
     ------------------------------------------
     SET @sql = N'
 SELECT  
-    sn.Brandid, 
-    sn.Dealerid, 
-    sn.locationid, 
+    li.Brand, 
+    li.Dealer, 
+    li.location, 
     sn.partnumber,
     pm.PartID,
     pm.partdesc,  
@@ -85,6 +85,7 @@ JOIN ' + @StockTable +' sn
     ON ds.locationid = sn.locationid AND sn.partnumber = ds.Partnumber
 JOIN z_scope..Part_Master pm 
     ON sn.brandid = pm.brandid AND pm.partnumber = sn.Partnumber 
+JOIN z_scope..locationinfo li on li.locationid = sn.Locationid
 LEFT JOIN PartMgmt_PartNatureMapping pnm
     ON pm.PartID = pnm.PartID
 LEFT JOIN partsmodelmapping psm
