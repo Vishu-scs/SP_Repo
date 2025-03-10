@@ -10,7 +10,8 @@ ALTER PROCEDURE GetMAXData
     @MaxValueFlag INT = NULL,         -- Optional: NULL -> No filter, 0 -> Maxvalue = 0, 1 -> Maxvalue > 0
     @seasonalid INT = NULL,           -- Optional: Seasonal ID filter
     @natureid INT = NULL,             -- Optional: Nature ID filter
-    @modelid INT = NULL               -- Optional: Model ID filter
+    @modelid INT = NULL,               -- Optional: Model ID filter
+	@parttype INT = NULL				--Optional : Parttype / category filter
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -79,15 +80,17 @@ SELECT
 	li.locationid,
     sn.partnumber,
 	pm.Partid,
-	 (CASE WHEN li.BrandID = sm.BrandID AND pm.PartNumber = sm.PartNumber THEN sm.SubPartNumber ELSE pm.PartNumber END) AS LatestPartNumber,
+	-- (CASE WHEN li.BrandID = sm.BrandID AND pm.PartNumber = sm.PartNumber THEN sm.SubPartNumber ELSE pm.PartNumber END) AS LatestPartNumber,
+	pm.orderpartnumber,
     pm.partdesc,  
-    pm.category, 
+    pm.category,
+	pn.Description as PartNature,
     pm.landedcost, 
     pm.moq, 
 	sn.N1 , sn.N2 , sn.N3,
     sn.Maxvalue, 
-    sn.Avg3MSale,
-	rm.Remark as LatestFeedback, fb.Customrem,
+    sn.Avg3MSale,  
+	CASE WHEN rm.Remark = ''Custom'' THEN fb.Customrem ELSE rm.Remark END AS UserRemark,
 	fb.ProposedQty,
     ' + @Columnsold + ',
 	fb.feedbackid
@@ -116,6 +119,7 @@ OUTER APPLY (
 ) fb
 LEFT JOIN UAD_VON..UAD_VON_RemarksMaster rm 
     ON rm.remarkid = fb.UserFBRemarkID
+left join z_scope..PartNatureMaster pn on pn.tcode = pnm.partnatureid
 WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
     AND (
          @MaxValueFlag IS NULL  
@@ -130,7 +134,9 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
     AND (@LocationID IS NULL OR sn.locationid = @LocationID)
     AND (@natureid IS NULL OR pnm.PartNatureID = @natureid)
     AND (@modelid IS NULL OR psm.ModelID = @modelid)
-    AND (@seasonalid IS NULL OR psam.SeasonalID = @seasonalid);
+    AND (@seasonalid IS NULL OR psam.SeasonalID = @seasonalid)
+	AND (@parttype IS NULL OR pm.parttypeid = @parttype)
+	order by sn.Avg3MSale desc;
 ';
 
     -- Optional: Print the full dynamic SQL statement for debugging.
@@ -142,7 +148,7 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
     EXEC sp_executesql 
          @sql, 
          N'@r1 DECIMAL(10,2), @r2 DECIMAL(10,2),@l1 Decimal(10,2),@l2 decimal(10,2), @PartNumber VARCHAR(50), @LocationID INT, @MaxValueFlag INT,
-           @seasonalid INT, @natureid INT, @modelid INT',
+           @seasonalid INT, @natureid INT, @modelid INT, @parttype int',
          @r1 = @r1, 
          @r2 = @r2, 
 		 @l1 = @l1,
@@ -152,8 +158,9 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
          @MaxValueFlag = @MaxValueFlag,
          @seasonalid = @seasonalid,
          @natureid = @natureid,
-         @modelid = @modelid;
+         @modelid = @modelid,
+		 @parttype = @parttype;
 END;
 GO
---EXEC GetMAXData @Brandid = 9, @DealerID = 8 , @r1 = null ,@r2 = null, @l1 = null ,@l2 = null,@PartNumber = null,@LocationID = 14,@MaxValueFlag = null,@seasonalid = null,@natureid = null,@modelid = null;
---use [z_scope] EXEC GetMAXData 9,8,null,null,null,null,null,14,null,null,null,null;
+--EXEC GetMAXData @Brandid = 9, @DealerID = 8 , @r1 = null ,@r2 = null, @l1 = null ,@l2 = null,@PartNumber = null,@LocationID = 14,@MaxValueFlag = null,@seasonalid = null,@natureid = null,@modelid = null@parttype = null;
+--use [z_scope] EXEC GetMAXData 9,8,null,null,null,null,null,14,null,null,null,null,1;
