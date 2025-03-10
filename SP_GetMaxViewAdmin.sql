@@ -11,7 +11,8 @@ Alter PROCEDURE GetMAXDataAdmin
     @seasonalid INT = NULL,           -- Optional: Seasonal ID filter
     @natureid INT = NULL,             -- Optional: Nature ID filter
     @modelid INT = NULL,              -- Optional: Model ID filter
-	@Status BIT = NULL
+	@Status BIT = NULL,				 --Optional (0->no feedback , 1-> feedback)
+	@parttype INT = NULL				--Optional : Parttype / category filter
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -81,15 +82,18 @@ SELECT
     li.location, 
     sn.partnumber,
 	pm.Partid,
-	 (CASE WHEN li.BrandID = sm.BrandID AND pm.PartNumber = sm.PartNumber THEN sm.SubPartNumber ELSE pm.PartNumber END) AS LatestPartNumber,
-    pm.partdesc,  
+	 --(CASE WHEN li.BrandID = sm.BrandID AND pm.PartNumber = sm.PartNumber THEN sm.SubPartNumber ELSE pm.PartNumber END) AS LatestPartNumber,
+	 pm.orderpartnumber,
+    pm.partdesc, 
+	pn.Description as PartNature,
     pm.category, 
     pm.landedcost, 
     pm.moq, 
 	sn.N1 , sn.N2 , sn.N3,
     sn.Maxvalue, 
     sn.Avg3MSale,
-		rm.Remark as SPMRemark , fb.ProposedQty, rm2.Remark as AdminRemark , afb.ApprovedQty,
+	CASE WHEN rm.Remark = ''Custom'' THEN fb.Customrem ELSE rm.Remark END AS SPMRemark, fb.ProposedQty, 
+	CASE WHEN rm2.Remark = ''Custom'' THEN afb.Customrem ELSE rm2.Remark END AS AdminRemark, afb.ApprovedQty,
     ' + @Columnsold + ',
 	fb.feedbackid
 FROM ' + @Dealer + ' ds
@@ -123,6 +127,7 @@ OUTER APPLY (
 ) afb
 LEFT JOIN UAD_VON..UAD_VON_RemarksMaster rm2 on rm2.remarkid = afb.AdminRemark
 LEFT JOIN substitution_master sm ON sm.BrandID = li.BrandID AND pm.PartNumber = sm.PartNumber
+left join z_scope..PartNatureMaster pn on pn.tcode = pnm.partnatureid
 WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
    AND(
 		 @Status IS NULL  
@@ -142,7 +147,9 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
     AND (@LocationID IS NULL OR sn.locationid = @LocationID)
     AND (@natureid IS NULL OR pnm.PartNatureID = @natureid)
     AND (@modelid IS NULL OR psm.ModelID = @modelid)
-    AND (@seasonalid IS NULL OR psam.SeasonalID = @seasonalid);
+    AND (@seasonalid IS NULL OR psam.SeasonalID = @seasonalid)
+	AND (@parttype IS NULL OR pm.parttypeid = @parttype)
+	order by sn.Avg3MSale desc;;
 ';
 
     -- Optional: Print the full dynamic SQL statement for debugging.
@@ -154,7 +161,7 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
     EXEC sp_executesql 
          @sql, 
          N'@r1 DECIMAL(10,2), @r2 DECIMAL(10,2),@l1 Decimal(10,2),@l2 decimal(10,2), @PartNumber VARCHAR(50), @LocationID INT, @MaxValueFlag INT,
-           @seasonalid INT, @natureid INT, @modelid INT , @Status bit',
+           @seasonalid INT, @natureid INT, @modelid INT , @Status bit , @parttype int',
          @r1 = @r1, 
          @r2 = @r2, 
 		 @l1 = @l1,
@@ -165,8 +172,9 @@ WHERE sn.stockdate = DATEADD(MONTH, DATEDIFF(MONTH, 0, GETDATE()), 0)
          @seasonalid = @seasonalid,
          @natureid = @natureid,
          @modelid = @modelid,
-		 @Status = @Status;
+		 @Status = @Status,
+		 @parttype = @parttype;
 END;
 GO
---EXEC GetMAXDataAdmin @brandid = 9,@DealerID = 8 , @r1 = null ,@r2 = null,@l1 = null ,@l2 = null,@PartNumber = null,@LocationID = 14,@MaxValueFlag = null,@seasonalid = null,@natureid = null,@modelid = null,@Status = null;
---use [z_scope] EXEC GetMAXDataAdmin 9,8,null,null,null,null,null,14,null,null,null,null,null;
+--EXEC GetMAXDataAdmin @brandid = 9,@DealerID = 8 , @r1 = null ,@r2 = null,@l1 = null ,@l2 = null,@PartNumber = null,@LocationID = 14,@MaxValueFlag = null,@seasonalid = null,@natureid = null,@modelid = null,@Status = null,@parttype = null;
+--use [z_scope] EXEC GetMAXDataAdmin 9,8,null,null,null,null,null,14,null,null,null,null,null,1;
